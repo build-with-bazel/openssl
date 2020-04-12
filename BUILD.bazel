@@ -1,0 +1,50 @@
+# see https://github.com/bazelbuild/rules_foreign_cc/issues/337#issuecomment-607873621
+
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["openssl/**"]),
+)
+
+config_setting(
+    name = "darwin_build",
+    values = {"cpu": "darwin"},
+)
+
+configure_make(
+    name = "openssl",
+    configure_command = "config",
+    configure_env_vars =
+        select({
+            ":darwin_build": {
+                "OSX_DEPLOYMENT_TARGET": "10.14",
+                "AR": "",
+            },
+            "//conditions:default": {},
+        }),
+    configure_options = [
+        "no-shared",
+    ] + select({
+        ":darwin_build": [
+            "enable-ec_nistp_64_gcc_128",
+            "no-ssl2",
+            "no-ssl3",
+            "no-comp",
+        ],
+        "//conditions:default": [],
+    }),
+    lib_source = ":srcs",
+    static_libraries = [
+        "libssl.a",
+        "libcrypto.a",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "openssl_test",
+    srcs = ["openssl_test.cpp"],
+    deps = [":openssl"],
+)
